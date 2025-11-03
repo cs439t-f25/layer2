@@ -1,14 +1,14 @@
 package layer2
 
 import (
-	"io"
+	"io/ioutil"
 	"log"
 	"testing"
 )
 
 func init() {
 	// comment out to see log output during tests
-	log.SetOutput(io.Discard)
+	log.SetOutput(ioutil.Discard)
 }
 
 func TestNewSwitch(t *testing.T) {
