@@ -1,10 +1,12 @@
 package layer2
 
-import "fmt"
-import "log"
-import "math/rand"
-import "sync/atomic"
-import "time"
+import (
+	"fmt"
+	"log"
+	"math/rand"
+	"sync/atomic"
+	"time"
+)
 
 // Simulated Layer 2 (Data Link Layer) for a network stack
 
@@ -90,6 +92,9 @@ type Switch struct {
 	// This is a simulation-only parameter used to simulate send delays
 	MaxSendDelayMicroSeconds int
 
+	// This is a simulation-only parameter used to simulate frame drops
+	DropChance float32
+
 	// This is a simulation-only parameter used to simulate frame duplication
 	DuplicationChance float32
 
@@ -102,11 +107,12 @@ type Switch struct {
 	NIllegalFrames    uint64
 }
 
-func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, duplicationChance float32) *Switch {
+func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, dropChance float32, duplicationChance float32) *Switch {
 	return &Switch{
 		Routing:                  make(map[MacAddr](chan *EtherFrame)),
 		Connections:              make([]*SwitchConnection, 0),
 		BufferSize:               bufferSize,
+		DropChance:               dropChance,
 		MaxSendDelayMicroSeconds: maxSendDelayMicroSeconds,
 		DuplicationChance:        duplicationChance,
 	}
@@ -205,15 +211,22 @@ func (sc *SwitchConnection) SendFrame(dest MacAddr, data []byte) error {
 		}
 	}
 
-	// send once, could fail
-	go doSend()
+	if sc.Switch.DropChance > 0.0 && rand.Float32() < sc.Switch.DropChance {
+		log.Printf("dropping frame from %v to %v\n", sc.MyMac, dest)
+		atomic.AddUint64(&sc.Switch.NDroppedFrames, 1)
+	} else {
 
-	// possibly duplicate
-	if sc.Switch.DuplicationChance > 0.0 {
-		if rand.Float32() < sc.Switch.DuplicationChance {
-			log.Printf("duplicating frame from %v to %v\n", sc.MyMac, dest)
-			atomic.AddUint64(&sc.Switch.NDuplicatedFrames, 1)
-			go doSend()
+		// first send
+		go doSend()
+
+		// possibly duplicate
+		if sc.Switch.DuplicationChance > 0.0 {
+			if rand.Float32() < sc.Switch.DuplicationChance {
+				log.Printf("duplicating frame from %v to %v\n", sc.MyMac, dest)
+				atomic.AddUint64(&sc.Switch.NDuplicatedFrames, 1)
+				// second send
+				go doSend()
+			}
 		}
 	}
 
