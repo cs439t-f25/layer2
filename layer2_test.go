@@ -1,8 +1,15 @@
 package layer2
 
 import (
+	"io"
+	"log"
 	"testing"
 )
+
+func init() {
+	// comment out to see log output during tests
+	log.SetOutput(io.Discard)
+}
 
 func TestNewSwitch(t *testing.T) {
 	s := NewSwitch(100, 10*1000, 0.1)
