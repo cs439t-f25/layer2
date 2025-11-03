@@ -17,8 +17,12 @@ const MTU = 1500
 
 // Abstract representation of a MAC address
 type MacAddr struct {
-	High  uint16
-	Low uint32
+	High uint16
+	Low  uint32
+}
+
+func NewMacAddr(high uint16, low uint32) MacAddr {
+	return MacAddr{High: high, Low: low}
 }
 
 var BroadcastMac = MacAddr{High: 0xFFFF, Low: 0xFFFFFFFF}

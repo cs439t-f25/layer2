@@ -26,7 +26,7 @@ func TestNewSwitch(t *testing.T) {
 
 func TestPlug(t *testing.T) {
 	s := NewSwitch(100, 10*1000, 0.1)
-	mac := MacAddr{1, 2}
+	mac := NewMacAddr(1, 2)
 	conn, err := s.Plug(1, mac)
 	if err != nil {
 		t.Fatalf("Failed to plug in MAC %v: %v", mac, err)
