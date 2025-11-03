@@ -206,7 +206,7 @@ func (sc *SwitchConnection) SendFrame(dest MacAddr, data []byte) error {
 	}
 
 	// send once, could fail
-	doSend()
+	go doSend()
 
 	// possibly duplicate
 	if sc.Switch.DuplicationChance > 0.0 {
