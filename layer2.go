@@ -210,7 +210,7 @@ func (sc *SwitchConnection) SendFrame(dest MacAddr, data []byte) error {
 
 	// possibly duplicate
 	if sc.Switch.DuplicationChance > 0.0 {
-		if rand.Float32() >= sc.Switch.DuplicationChance {
+		if rand.Float32() < sc.Switch.DuplicationChance {
 			log.Printf("duplicating frame from %v to %v\n", sc.MyMac, dest)
 			atomic.AddUint64(&sc.Switch.NDuplicatedFrames, 1)
 			go doSend()
