@@ -13,14 +13,14 @@ func init() {
 
 func TestNewSwitch(t *testing.T) {
 	s := NewSwitch(100, 10*1000, 0.1)
-	if s.bufferSize != 100 {
-		t.Errorf("expected buffer size 100, got %d", s.bufferSize)
+	if s.BufferSize != 100 {
+		t.Errorf("expected buffer size 100, got %d", s.BufferSize)
 	}
-	if s.maxSendDelayMicroSeconds != 10*1000 {
-		t.Errorf("expected max send delay 10000, got %d", s.maxSendDelayMicroSeconds)
+	if s.MaxSendDelayMicroSeconds != 10*1000 {
+		t.Errorf("expected max send delay 10000, got %d", s.MaxSendDelayMicroSeconds)
 	}
-	if s.duplicationChance != 0.1 {
-		t.Errorf("expected duplication chance 0.1, got %f", s.duplicationChance)
+	if s.DuplicationChance != 0.1 {
+		t.Errorf("expected duplication chance 0.1, got %f", s.DuplicationChance)
 	}
 }
 
@@ -41,7 +41,7 @@ func TestPlug(t *testing.T) {
 
 func TestPlugBroadcastMac(t *testing.T) {
 	s := NewSwitch(100, 10*1000, 0.1)
-	_, err := s.Plug(1, broadcastMac)
+	_, err := s.Plug(1, BroadcastMac)
 	if err == nil {
 		t.Fatalf("Expected error when plugging in broadcast MAC, got nil")
 	}

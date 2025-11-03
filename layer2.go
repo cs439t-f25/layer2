@@ -17,11 +17,11 @@ const MTU = 1500
 
 // Abstract representation of a MAC address
 type MacAddr struct {
-	low  uint32
-	high uint16
+	High  uint16
+	Low uint32
 }
 
-var broadcastMac = MacAddr{low: 0xFFFFFFFF, high: 0xFFFF}
+var BroadcastMac = MacAddr{High: 0xFFFF, Low: 0xFFFFFFFF}
 
 ////////////////////
 // Ethernet Frame //
@@ -81,13 +81,13 @@ type Switch struct {
 	// This is a simulation-only parameter used to guarantee forward progress
 	// and avoid deadlocks in tests and simulations.
 	// It has the side benefit of simulating limited buffer sizes in real hardware.
-	bufferSize int
+	BufferSize int
 
 	// This is a simulation-only parameter used to simulate send delays
-	maxSendDelayMicroSeconds int
+	MaxSendDelayMicroSeconds int
 
 	// This is a simulation-only parameter used to simulate frame duplication
-	duplicationChance float32
+	DuplicationChance float32
 
 	// stats
 	NSendAttempts     uint64
@@ -102,23 +102,23 @@ func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, duplicationChance f
 	return &Switch{
 		Routing:                  make(map[MacAddr](chan *EtherFrame)),
 		Connections:              make([]*SwitchConnection, 0),
-		bufferSize:               bufferSize,
-		maxSendDelayMicroSeconds: maxSendDelayMicroSeconds,
-		duplicationChance:        duplicationChance,
+		BufferSize:               bufferSize,
+		MaxSendDelayMicroSeconds: maxSendDelayMicroSeconds,
+		DuplicationChance:        duplicationChance,
 	}
 }
 
 // Simulate plugging a NIC into the switch at the given port with the given MAC address
 func (s *Switch) Plug(port uint, mac MacAddr) (*SwitchConnection, error) {
 
-	if mac == broadcastMac {
+	if mac == BroadcastMac {
 		return nil, fmt.Errorf("cannot use broadcast MAC address as source MAC")
 	}
 
 	conn := &SwitchConnection{
 		Switch:            s,
 		MyMac:             mac,
-		FromPhysicalLayer: make(chan *EtherFrame, s.bufferSize),
+		FromPhysicalLayer: make(chan *EtherFrame, s.BufferSize),
 	}
 	s.Connections = append(s.Connections, conn)
 
@@ -148,8 +148,8 @@ func (sc *SwitchConnection) SendFrame(dest MacAddr, data []byte) error {
 	doSend := func() {
 
 		// Simulate send delay
-		if sc.Switch.maxSendDelayMicroSeconds > 0 {
-			delayMicroSeconds := rand.Intn(sc.Switch.maxSendDelayMicroSeconds)
+		if sc.Switch.MaxSendDelayMicroSeconds > 0 {
+			delayMicroSeconds := rand.Intn(sc.Switch.MaxSendDelayMicroSeconds)
 			time.Sleep(time.Duration(delayMicroSeconds) * time.Microsecond)
 		}
 
@@ -205,8 +205,8 @@ func (sc *SwitchConnection) SendFrame(dest MacAddr, data []byte) error {
 	doSend()
 
 	// possibly duplicate
-	if sc.Switch.duplicationChance > 0.0 {
-		if rand.Float32() >= sc.Switch.duplicationChance {
+	if sc.Switch.DuplicationChance > 0.0 {
+		if rand.Float32() >= sc.Switch.DuplicationChance {
 			log.Printf("duplicating frame from %v to %v\n", sc.MyMac, dest)
 			atomic.AddUint64(&sc.Switch.NDuplicatedFrames, 1)
 			go doSend()
