@@ -1,22 +1,26 @@
 package layer2
 
-// None of what follows belongs in layer2 but it's just an interface definition
-// to be implemented by higher layers
-
-// A simplified TCP-like session abstraction with very limited functionality: no ports,
-// no connection management, no handshakes, no IP addresses, no DNS, etc.
+// None of what follows belongs in layer2 and all of it is a gross over-simplification
+// of reality.
 //
-// We use a string to represent a configured interface and allow a maximum of one
-// session between any pair of names.
+// Intended to allow students to unit test their implementation of reliable streams while
+// ignoring the rest of the protocol(s) details
+//
+// Why is it here? To keep the interface seperate from the implementation
 
-type Mgr interface {
-	NewStream(dstName string) (chan byte, chan byte, error)
+type Connection struct {
+	toNetwork   chan byte
+	fromNetwork chan byte
 }
 
-type ConfigMgr interface {
-	// a successful call to IfConfig:
-	//    (1) creates and returns a Mgr that can create sessions over the given interface
-	//    (2) associates the given name with the given interface.
-	//    (3) the behavior is undefined if another interface has already been associated with the same name.
-	IfConfig(sw *SwitchConnection, name string) (Mgr, error)
+type TestMgr interface {
+	// configure the network interface, can be called at most once
+	IfConfig(sw *Switch, myMac *MacAddr, myName string) error
+
+	// create a connection to another host (including yourself)
+	// a connection is TCP-like:
+	//     - implements a reliable, full-duplex byte stream
+	//     - uniquely identified by (port1, host1, port2, host2)
+	//
+	Connect(myPort int, otherPort int, otherName string) (*Connection, error)
 }
