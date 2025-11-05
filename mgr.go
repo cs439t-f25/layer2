@@ -15,7 +15,7 @@ type Connection struct {
 
 type Mgr interface {
 	// configure the network interface, can be called at most once
-	IfConfig(myMac *MacAddr, myName string) error
+	IfConfig(myMac MacAddr, myName string) error
 
 	// create a connection to another host (including yourself)
 	// a connection is TCP-like:
