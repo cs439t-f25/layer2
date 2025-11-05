@@ -10,7 +10,7 @@ package layer2
 
 type Connection struct {
 	ToNetwork   chan byte
-	TromNetwork chan byte
+	FromNetwork chan byte
 }
 
 type Mgr interface {
@@ -26,8 +26,8 @@ type Mgr interface {
 	//
 	// fails if called before IfConfig
 	//
-	Connect(myPort int, otherPort int, otherName string) (*Connection, error)
+	Connect(myPort uint16, otherPort uint16, otherName string) (*Connection, error)
 
 	// listen for for connections on the given port
-	Listen(myPort int) (*Connection, error)
+	Listen(myPort uint16) (*Connection, error)
 }
