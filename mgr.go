@@ -15,12 +15,14 @@ type Connection struct {
 
 type TestMgr interface {
 	// configure the network interface, can be called at most once
-	IfConfig(sw *Switch, myMac *MacAddr, myName string) error
+	IfConfig(myMac *MacAddr, myName string) error
 
 	// create a connection to another host (including yourself)
 	// a connection is TCP-like:
 	//     - implements a reliable, full-duplex byte stream
 	//     - uniquely identified by (port1, host1, port2, host2)
+	//
+	// fails if called before IfConfig
 	//
 	Connect(myPort int, otherPort int, otherName string) (*Connection, error)
 }
