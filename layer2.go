@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -81,7 +82,8 @@ type SwitchConnection struct {
 
 type Switch struct {
 	// The routing table, populated on send
-	Routing     map[MacAddr](chan *EtherFrame)
+	// This is a map of MacAddr to chan *EtherFrame, but sync.Map is type-agnostic
+	Routing     sync.Map
 	Connections []*SwitchConnection
 
 	// This is a simulation-only parameter used to guarantee forward progress
@@ -109,7 +111,6 @@ type Switch struct {
 
 func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, dropChance float32, duplicationChance float32) *Switch {
 	return &Switch{
-		Routing:                  make(map[MacAddr](chan *EtherFrame)),
 		Connections:              make([]*SwitchConnection, 0),
 		BufferSize:               bufferSize,
 		DropChance:               dropChance,
@@ -148,7 +149,7 @@ func (sc *SwitchConnection) SendFrame(dest MacAddr, data []byte) error {
 	}
 
 	// Remember the source MAC
-	sc.Switch.Routing[sc.MyMac] = sc.FromPhysicalLayer
+	sc.Switch.Routing.Store(sc.MyMac, sc.FromPhysicalLayer)
 
 	// Send asynchronously:
 	//      - sender never blocks
@@ -177,11 +178,14 @@ func (sc *SwitchConnection) SendFrame(dest MacAddr, data []byte) error {
 		//     - duplicated frames
 		//     - delayed frames
 		//     - mis-delivered frames (arrive at wrong destination)
-		outChan, ok := sc.Switch.Routing[dest]
+		outChan, ok := sc.Switch.Routing.Load(dest)
 		if ok {
+			// Type assertion, to appease the compiler
+			outChanChan := outChan.(chan *EtherFrame)
+
 			// Known destination, send directly
 			select {
-			case outChan <- frame:
+			case outChanChan <- frame:
 			default:
 				log.Printf("failed to send frame to %v, dropping\n", dest)
 				atomic.AddUint64(&sc.Switch.NDroppedFrames, 1)
