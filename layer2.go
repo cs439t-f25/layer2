@@ -138,7 +138,7 @@ func (s *Switch) Plug(port uint, mac MacAddr) (*SwitchConnection, error) {
 // Send a frame into the switch from a given connection
 // Could drop, duplicate, delay, and reorder frames to simulate real network conditions. None
 // of those are considered errors.
-func (sc *SwitchConnection) SendFrame(dest MacAddr, data []byte) error {
+func (sc *SwitchConnection) SendFrame(dest MacAddr, data []byte,type EtherType) error {
 	atomic.AddUint64(&sc.Switch.NSendAttempts, 1)
 
 	// Check for oversize frame
@@ -166,7 +166,7 @@ func (sc *SwitchConnection) SendFrame(dest MacAddr, data []byte) error {
 		frame := &EtherFrame{
 			Dst:     dest,
 			Src:     sc.MyMac,
-			Type:    EtherTypeIPv4,
+			Type:    (type==EtherTypeARP?EtherTypeARP:EtherTypeIPv4),//type is specified as ARP any other value is IPv4 so 0 can by type
 			Payload: data,
 		}
 
