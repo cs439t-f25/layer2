@@ -13,6 +13,7 @@ import (
 
 // Maximum Transmission Unit
 const MTU = 1500
+var mu sync.Mutex
 
 /////////////////
 // MAC Address //
@@ -121,7 +122,8 @@ func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, dropChance float32,
 
 // Simulate plugging a NIC into the switch at the given port with the given MAC address
 func (s *Switch) Plug(port uint, mac MacAddr) (*SwitchConnection, error) {
-
+	mu.Lock()
+	defer mu.Unlock()
 	if mac == BroadcastMac {
 		return nil, fmt.Errorf("cannot use broadcast MAC address as source MAC")
 	}
