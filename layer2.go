@@ -86,6 +86,9 @@ type Switch struct {
 	Routing     sync.Map
 	Connections []*SwitchConnection
 
+	// Mutex to protect the switch during plugins
+	mu 			sync.Mutex
+
 	// This is a simulation-only parameter used to guarantee forward progress
 	// and avoid deadlocks in tests and simulations.
 	// It has the side benefit of simulating limited buffer sizes in real hardware.
@@ -111,6 +114,7 @@ type Switch struct {
 
 func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, dropChance float32, duplicationChance float32) *Switch {
 	return &Switch{
+		mu                        sync.Mutex{},
 		Connections:              make([]*SwitchConnection, 0),
 		BufferSize:               bufferSize,
 		DropChance:               dropChance,
@@ -120,7 +124,10 @@ func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, dropChance float32,
 }
 
 // Simulate plugging a NIC into the switch at the given port with the given MAC address
+// Use mutex to lock Plugging in
 func (s *Switch) Plug(port uint, mac MacAddr) (*SwitchConnection, error) {
+	mu.Lock()
+	defer mu.Unlock()
 
 	if mac == BroadcastMac {
 		return nil, fmt.Errorf("cannot use broadcast MAC address as source MAC")
