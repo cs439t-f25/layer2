@@ -12,7 +12,7 @@ func init() {
 }
 
 func TestNewSwitch(t *testing.T) {
-	s := NewSwitch(100, 10*1000, .2, 0.1)
+	s := NewSwitch(100, 10*1000, .2, 0.1, 0.73)
 	if s.BufferSize != 100 {
 		t.Errorf("expected buffer size 100, got %d", s.BufferSize)
 	}
@@ -25,10 +25,13 @@ func TestNewSwitch(t *testing.T) {
 	if s.DropChance != 0.2 {
 		t.Errorf("expected drop chance 0.2, got %f", s.DropChance)
 	}
+	if s.MisdeliveryChance != 0.73 {
+		t.Errorf("expected misdelivery chance 0.73, got %f", s.MisdeliveryChance)
+	}
 }
 
 func TestPlug(t *testing.T) {
-	s := NewSwitch(100, 10*1000, 0.1, 0.2)
+	s := NewSwitch(100, 10*1000, 0.1, 0.2, 0.3)
 	mac := NewMacAddr(1, 2)
 	conn, err := s.Plug(1, mac)
 	if err != nil {
@@ -43,7 +46,7 @@ func TestPlug(t *testing.T) {
 }
 
 func TestPlugBroadcastMac(t *testing.T) {
-	s := NewSwitch(100, 10*1000, 0.1, 0.2)
+	s := NewSwitch(100, 10*1000, 0.1, 0.2, 0.3)
 	_, err := s.Plug(1, BroadcastMac)
 	if err == nil {
 		t.Fatalf("Expected error when plugging in broadcast MAC, got nil")
@@ -51,7 +54,7 @@ func TestPlugBroadcastMac(t *testing.T) {
 }
 
 func TestSendFrameOversize(t *testing.T) {
-	s := NewSwitch(100, 10*1000, 0.1, 0.2)
+	s := NewSwitch(100, 10*1000, 0.1, 0.2, 0.3)
 	mac := MacAddr{1, 2}
 	conn, err := s.Plug(1, mac)
 	if err != nil {
@@ -65,7 +68,7 @@ func TestSendFrameOversize(t *testing.T) {
 }
 
 func TestSendReceiveFrame(t *testing.T) {
-	s := NewSwitch(100, 0, 0.0, 0.0)
+	s := NewSwitch(100, 0, 0.0, 0.0, 0.0)
 
 	// side-channel to verify reception -- test only
 	ch := make(chan bool, 1)
