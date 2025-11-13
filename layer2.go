@@ -206,7 +206,8 @@ func (sc *SwitchConnection) SendFrame_(dest MacAddr, data []byte, etherType Ethe
 
 			log.Printf("broadcasting frame from %v to %v\n", sc.MyMac, dest)
 			atomic.AddUint64(&sc.Switch.NBroadcastFrames, 1)
-
+			
+			mu.Lock()
 			for _, conn := range sc.Switch.Connections {
 				if conn != sc {
 					log.Printf("  sending to %v\n", conn.MyMac)
@@ -220,6 +221,7 @@ func (sc *SwitchConnection) SendFrame_(dest MacAddr, data []byte, etherType Ethe
 					}
 				}
 			}
+			mu.Unlock()
 
 		}
 	}
