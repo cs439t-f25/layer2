@@ -114,15 +114,20 @@ type Switch struct {
 	NIllegalFrames    uint64
 }
 
-func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, dropChance float32, duplicationChance float32, misdeliveryChance float32) *Switch {
+func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, dropChance float32, duplicationChance float32) *Switch {
 	return &Switch{
 		Connections:              make([]*SwitchConnection, 0),
 		BufferSize:               bufferSize,
 		DropChance:               dropChance,
 		MaxSendDelayMicroSeconds: maxSendDelayMicroSeconds,
 		DuplicationChance:        duplicationChance,
-		MisdeliveryChance:        misdeliveryChance,
+		MisdeliveryChance:        0.0,
 	}
+}
+
+// Separate set method for misdelivery to retain NewSwitch signature
+func (s *Switch) SetMisdeliveryChance(chance float32) {
+	s.MisdeliveryChance = chance
 }
 
 // Simulate plugging a NIC into the switch at the given port with the given MAC address
