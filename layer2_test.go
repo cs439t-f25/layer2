@@ -25,6 +25,10 @@ func TestNewSwitch(t *testing.T) {
 	if s.DropChance != 0.2 {
 		t.Errorf("expected drop chance 0.2, got %f", s.DropChance)
 	}
+	s.SetMisdeliveryChance(0.73)
+	if s.MisdeliveryChance != 0.73 {
+		t.Errorf("expected misdelivery chance 0.73, got %f", s.MisdeliveryChance)
+	}
 }
 
 func TestPlug(t *testing.T) {
