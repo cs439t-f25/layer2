@@ -75,6 +75,22 @@ type SwitchConnection struct {
 	FromPhysicalLayer chan *EtherFrame
 }
 
+////////////////////////////////
+// Simulation Tracking Struct //
+////////////////////////////////
+
+// used inside the switch as simulation-only tools for targeted testing
+
+type CountTracking struct {
+	Count uint32
+	OnFinish *func(sim *CountTracking)
+}
+
+type SimTracking struct {
+	Drop CountTracking
+	Dupe CountTracking
+}
+
 ////////////
 // Switch //
 ////////////
@@ -104,6 +120,12 @@ type Switch struct {
 	// This is a simulation-only parameter used to simulate mis-delivered frames
 	MisdeliveryChance float32
 
+	// This is a simulation-only parameter used to force specific frames from a mac to be dropped/duped.
+	// It is useful for debugging by allowing deterministic package loss/duplication.
+	// The second parameter can be used to reset the countdown after the nth frame is dropped/duped.
+	// This is stored per-MacAddr
+	SimDropDupe Sync.Map
+
 	// stats
 	NSendAttempts     uint64
 	NBroadcastFrames  uint64
@@ -129,6 +151,35 @@ func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, dropChance float32,
 func (s *Switch) SetMisdeliveryChance(chance float32) {
 	s.MisdeliveryChance = chance
 }
+
+// Use nil and -1 for default values
+// this should be called before starting the simulation to prevent race conditions
+func (s *Switch) SetSimDrop(mac MacAddr, count uint32, onFinish *func(sim *CountTracking)) {
+	existing, exists := s.SimDropDupe.Load(mac)
+	if exists {
+		sim := existing.(*SimTracking)
+		sim.Drop = CountTracking{Count: count, OnFinish: onFinish}
+	} else {
+		sim := &SimTracking{
+			Drop: CountTracking{Count: count, OnFinish: onFinish},
+		}
+		s.SimDropDupe.Store(mac, sim)
+	}
+}
+func (s *Switch) SetSimDupe(mac MacAddr, count uint32, onFinish *func(sim *CountTracking)) {
+	existing, exists := s.SimDropDupe.Load(mac)
+	if exists {
+		sim := existing.(*SimTracking)
+		sim.Dupe = CountTracking{Count: count, OnFinish: onFinish}
+	} else {
+		sim := &SimTracking{
+			Dupe: CountTracking{Count: count, OnFinish: onFinish},
+		}
+		s.SimDropDupe.Store(mac, sim)
+	}
+}
+
+// Optional
 
 // Simulate plugging a NIC into the switch at the given port with the given MAC address
 func (s *Switch) Plug(port uint, mac MacAddr) (*SwitchConnection, error) {
@@ -244,6 +295,40 @@ func (sc *SwitchConnection) SendFrame_(dest MacAddr, data []byte, etherType Ethe
 		}
 	}
 
+	// Check for deterministic simulation drop/dupe
+	// If set, this takes precedence over random drop/dupe
+	existing, exists := sc.Switch.SimDropDupe.Load(sc.MyMac)
+	if exists {
+		sim := existing.(*SimTracking)
+
+		// Drop
+		if sim.Drop.Count > 0 {
+			sim.Drop.Count--
+			if sim.Drop.Count == 0 && sim.Drop.OnFinish != nil {
+				(*sim.Drop.OnFinish)( &sim.Drop)
+			}
+			log.Printf("deterministically dropping frame from %v to %v\n", sc.MyMac, dest)
+			atomic.AddUint64(&sc.Switch.NDroppedFrames, 1)
+			return nil
+		}
+
+		// Dupe
+		if sim.Dupe.Count > 0 {
+			sim.Dupe.Count--
+			if sim.Dupe.Count == 0 && sim.Dupe.OnFinish != nil {
+				(*sim.Dupe.OnFinish)( &sim.Dupe)
+			}
+			log.Printf("deterministically duplicating frame from %v to %v\n", sc.MyMac, dest)
+			atomic.AddUint64(&sc.Switch.NDuplicatedFrames, 1)
+			// first send
+			go doSend()
+			// second send
+			go doSend()
+			return nil
+		}
+	}
+
+	// Default to probabilistic drop/dupe
 	if sc.Switch.DropChance > 0.0 && rand.Float32() < sc.Switch.DropChance {
 		log.Printf("dropping frame from %v to %v\n", sc.MyMac, dest)
 		atomic.AddUint64(&sc.Switch.NDroppedFrames, 1)
