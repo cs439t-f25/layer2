@@ -13,7 +13,6 @@ import (
 
 // Maximum Transmission Unit
 const MTU = 1500
-var mu sync.Mutex
 
 /////////////////
 // MAC Address //
@@ -85,7 +84,7 @@ type Switch struct {
 	// The routing table, populated on send
 	// This is a map of MacAddr to chan *EtherFrame, but sync.Map is type-agnostic
 	Routing     sync.Map
-	Connections []*SwitchConnection
+	Connections atomic.Value // Of []*SwitchConnection.
 
 	// This is a simulation-only parameter used to guarantee forward progress
 	// and avoid deadlocks in tests and simulations.
@@ -111,19 +110,19 @@ type Switch struct {
 }
 
 func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, dropChance float32, duplicationChance float32) *Switch {
-	return &Switch{
-		Connections:              make([]*SwitchConnection, 0),
+	newSwitch := &Switch{
+		Connections:              atomic.Value{},
 		BufferSize:               bufferSize,
 		DropChance:               dropChance,
 		MaxSendDelayMicroSeconds: maxSendDelayMicroSeconds,
 		DuplicationChance:        duplicationChance,
 	}
+	newSwitch.Connections.Store([]*SwitchConnection{})
+	return newSwitch
 }
 
 // Simulate plugging a NIC into the switch at the given port with the given MAC address
 func (s *Switch) Plug(port uint, mac MacAddr) (*SwitchConnection, error) {
-	mu.Lock()
-	defer mu.Unlock()
 	if mac == BroadcastMac {
 		return nil, fmt.Errorf("cannot use broadcast MAC address as source MAC")
 	}
@@ -133,11 +132,12 @@ func (s *Switch) Plug(port uint, mac MacAddr) (*SwitchConnection, error) {
 		MyMac:             mac,
 		FromPhysicalLayer: make(chan *EtherFrame, s.BufferSize),
 	}
-	// Create a new slice and copy over.
-	updatedConnections := make([]*SwitchConnection, len(s.Connections)+1)
-	copy(updatedConnections, s.Connections)
-	updatedConnections[len(s.Connections)] = conn
-	s.Connections = updatedConnections
+	// Update with a new copy.
+	oldConnections := s.Connections.Load().([]*SwitchConnection)
+	newConnections := make([]*SwitchConnection, len(oldConnections)+1)
+	copy(newConnections, oldConnections)
+	newConnections[len(oldConnections)] = conn
+	s.Connections.Store(newConnections)
 
 	return conn, nil
 }
@@ -211,7 +211,8 @@ func (sc *SwitchConnection) SendFrame_(dest MacAddr, data []byte, etherType Ethe
 			log.Printf("broadcasting frame from %v to %v\n", sc.MyMac, dest)
 			atomic.AddUint64(&sc.Switch.NBroadcastFrames, 1)
 			
-			for _, conn := range sc.Switch.Connections {
+			connections := sc.Switch.Connections.Load().([]*SwitchConnection)
+			for _, conn := range connections {
 				if conn != sc {
 					log.Printf("  sending to %v\n", conn.MyMac)
 					select {
