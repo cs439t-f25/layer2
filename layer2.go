@@ -100,12 +100,16 @@ type Switch struct {
 	// This is a simulation-only parameter used to simulate frame duplication
 	DuplicationChance float32
 
+	// This is a simulation-only parameter used to simulate mis-delivered frames
+	MisdeliveryChance float32
+
 	// stats
 	NSendAttempts     uint64
 	NBroadcastFrames  uint64
 	NDroppedFrames    uint64
 	NSentFrames       uint64
 	NDuplicatedFrames uint64
+	NMisdeliveredFrames uint64
 	NIllegalFrames    uint64
 }
 
@@ -116,9 +120,15 @@ func NewSwitch(bufferSize int, maxSendDelayMicroSeconds int, dropChance float32,
 		DropChance:               dropChance,
 		MaxSendDelayMicroSeconds: maxSendDelayMicroSeconds,
 		DuplicationChance:        duplicationChance,
+		MisdeliveryChance:        0.0,
 	}
 	newSwitch.Connections.Store([]*SwitchConnection{})
 	return newSwitch
+}
+
+// Separate set method for misdelivery to retain NewSwitch signature
+func (s *Switch) SetMisdeliveryChance(chance float32) {
+	s.MisdeliveryChance = chance
 }
 
 // Simulate plugging a NIC into the switch at the given port with the given MAC address
@@ -196,7 +206,17 @@ func (sc *SwitchConnection) SendFrame_(dest MacAddr, data []byte, etherType Ethe
 			// Type assertion, to appease the compiler
 			outChanChan := outChan.(chan *EtherFrame)
 
-			// Known destination, send directly
+			// Known destination, possibly mis-deliver
+			if sc.Switch.MisdeliveryChance > 0.0 && rand.Float32() < sc.Switch.MisdeliveryChance {
+				misdeliveredTo := sc.Switch.Connections[rand.Intn(len(sc.Switch.Connections))]
+				if misdeliveredTo.MyMac != dest {
+					log.Printf("mis-delivering frame to %v instead of %v\n", misdeliveredTo.MyMac, dest)
+					atomic.AddUint64(&sc.Switch.NMisdeliveredFrames, 1)
+					dest = misdeliveredTo.MyMac
+					outChanChan = misdeliveredTo.FromPhysicalLayer
+				}
+			}
+
 			select {
 			case outChanChan <- frame:
 			default:
