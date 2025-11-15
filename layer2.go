@@ -133,7 +133,11 @@ func (s *Switch) Plug(port uint, mac MacAddr) (*SwitchConnection, error) {
 		MyMac:             mac,
 		FromPhysicalLayer: make(chan *EtherFrame, s.BufferSize),
 	}
-	s.Connections = append(s.Connections, conn)
+	// Create a new slice and copy over.
+	updatedConnections := make([]*SwitchConnection, len(s.Connections)+1)
+	copy(updatedConnections, s.Connections)
+	updatedConnections[len(s.Connections)] = conn
+	s.Connections = updatedConnections
 
 	return conn, nil
 }
@@ -207,7 +211,6 @@ func (sc *SwitchConnection) SendFrame_(dest MacAddr, data []byte, etherType Ethe
 			log.Printf("broadcasting frame from %v to %v\n", sc.MyMac, dest)
 			atomic.AddUint64(&sc.Switch.NBroadcastFrames, 1)
 			
-			mu.Lock()
 			for _, conn := range sc.Switch.Connections {
 				if conn != sc {
 					log.Printf("  sending to %v\n", conn.MyMac)
@@ -221,7 +224,6 @@ func (sc *SwitchConnection) SendFrame_(dest MacAddr, data []byte, etherType Ethe
 					}
 				}
 			}
-			mu.Unlock()
 
 		}
 	}
