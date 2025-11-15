@@ -208,7 +208,8 @@ func (sc *SwitchConnection) SendFrame_(dest MacAddr, data []byte, etherType Ethe
 
 			// Known destination, possibly mis-deliver
 			if sc.Switch.MisdeliveryChance > 0.0 && rand.Float32() < sc.Switch.MisdeliveryChance {
-				misdeliveredTo := sc.Switch.Connections[rand.Intn(len(sc.Switch.Connections))]
+				connections := sc.Switch.Connections.Load().([]*SwitchConnection)
+				misdeliveredTo := connections[rand.Intn(len(connections))]
 				if misdeliveredTo.MyMac != dest {
 					log.Printf("mis-delivering frame to %v instead of %v\n", misdeliveredTo.MyMac, dest)
 					atomic.AddUint64(&sc.Switch.NMisdeliveredFrames, 1)
