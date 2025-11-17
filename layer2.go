@@ -203,12 +203,15 @@ func (sc *SwitchConnection) SendFrame_(dest MacAddr, data []byte, etherType Ethe
 			outChanChan := outChan.(chan *EtherFrame)
 
 			// Known destination, possibly mis-deliver
-			if sc.Switch.MisdeliveryChance > 0.0 && rand.Float32() < sc.Switch.MisdeliveryChance {
+			destToPrint := dest	// MacAddr that we actually send to
+ 			if sc.Switch.MisdeliveryChance > 0.0 && rand.Float32() < sc.Switch.MisdeliveryChance {
 				misdeliveredTo := sc.Switch.Connections[rand.Intn(len(sc.Switch.Connections))]
 				if misdeliveredTo.MyMac != dest {
 					log.Printf("mis-delivering frame to %v instead of %v\n", misdeliveredTo.MyMac, dest)
+
+
 					atomic.AddUint64(&sc.Switch.NMisdeliveredFrames, 1)
-					dest = misdeliveredTo.MyMac
+					destToPrint = misdeliveredTo.MyMac
 					outChanChan = misdeliveredTo.FromPhysicalLayer
 				}
 			}
@@ -216,7 +219,7 @@ func (sc *SwitchConnection) SendFrame_(dest MacAddr, data []byte, etherType Ethe
 			select {
 			case outChanChan <- frame:
 			default:
-				log.Printf("failed to send frame to %v, dropping\n", dest)
+				log.Printf("failed to send frame to %v, dropping\n", destToPrint)
 				atomic.AddUint64(&sc.Switch.NDroppedFrames, 1)
 				// Channel is full, drop the frame
 			}
